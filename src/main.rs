@@ -62,6 +62,7 @@ pub mod blog {
 
     struct Draft {}
     struct PendingReview {}
+    struct PendingFinalApproval {}
     struct Published {}
 
     impl State for Draft {
@@ -76,6 +77,18 @@ pub mod blog {
         }
     }
     impl State for PendingReview {
+        fn request_review(self: Box<Self>) -> Box<dyn State> {
+            self
+        }
+        fn approve(self: Box<Self>) -> Box<dyn State> {
+            Box::new(PendingFinalApproval {})
+        }
+        fn reject(self: Box<Self>) -> Box<dyn State> {
+            self
+        }
+    }
+
+    impl State for PendingFinalApproval {
         fn request_review(self: Box<Self>) -> Box<dyn State> {
             self
         }
@@ -114,7 +127,10 @@ fn main() {
     post.request_review();
     assert_eq!("", post.content());
 
-    post.approve();
+    post.approve(); // first approval
+    assert_eq!("", post.content());
+
+    post.approve(); // final approval
     assert_eq!("I ate a salad for lunch today", post.content());
 
     post.reject();
