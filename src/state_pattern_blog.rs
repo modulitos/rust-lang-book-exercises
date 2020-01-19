@@ -47,12 +47,10 @@ pub mod blog {
         }
     }
 
-
     struct Draft {}
     struct PendingReview {}
     struct PendingFinalApproval {}
     struct Published {}
-
 
     trait State {
         // We might update these methods with default implementations that return self, however,
@@ -124,5 +122,32 @@ pub mod blog {
         fn reject(self: Box<Self>) -> Box<dyn State> {
             Box::new(PendingReview {})
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::blog::*;
+
+    #[test]
+    fn approve_posts_2() {
+        let mut post = Post::new();
+
+        post.add_text("I ate a salad for lunch today");
+        assert_eq!("", post.content());
+
+        post.request_review();
+        assert_eq!("", post.content());
+
+        post.add_text("Not this!"); // content can only be added to Drafts
+
+        post.approve(); // first approval
+        assert_eq!("", post.content());
+
+        post.approve(); // final approval
+        assert_eq!("I ate a salad for lunch today", post.content());
+
+        post.reject();
+        assert_eq!("", post.content());
     }
 }

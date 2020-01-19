@@ -17,7 +17,7 @@ pub mod blog {
 
         pub fn reject(self) -> DraftPost {
             DraftPost {
-                content: self.content
+                content: self.content,
             }
         }
     }
@@ -33,32 +33,54 @@ pub mod blog {
 
         pub fn request_review(self) -> PendingReview {
             PendingReview {
-                content: self.content
+                content: self.content,
             }
         }
     }
 
     pub struct PendingReview {
-        content: String
+        content: String,
     }
 
     impl PendingReview {
         pub fn approve(self) -> PendingSecondReview {
             PendingSecondReview {
-                content: self.content
+                content: self.content,
             }
         }
     }
 
     pub struct PendingSecondReview {
-        content: String
+        content: String,
     }
 
     impl PendingSecondReview {
         pub fn approve(self) -> Post {
             Post {
-                content: self.content
+                content: self.content,
             }
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::blog::*;
+
+    #[test]
+    fn approve_posts() {
+        let mut post = Post::new();
+
+        post.add_text("I ate a salad for lunch today");
+
+        let post = post.request_review();
+
+        let post = post.approve(); // first approval
+        let post = post.approve(); // final approval
+
+        assert_eq!("I ate a salad for lunch today", post.content());
+
+        let post = post.reject();
+    }
+}
+
