@@ -136,18 +136,19 @@ mod tests {
         post.add_text("I ate a salad for lunch today");
         assert_eq!("", post.content());
 
-        post.request_review();
+        post.request_review(); // post.state is now PendingReview
         assert_eq!("", post.content());
 
         post.add_text("Not this!"); // content can only be added to Drafts
 
-        post.approve(); // first approval
+        post.approve(); // first approval, post.state is now PendingFinalApproval
         assert_eq!("", post.content());
 
-        post.approve(); // final approval
+        post.approve(); // final approval, post.state is now Published
         assert_eq!("I ate a salad for lunch today", post.content());
 
-        post.reject();
+        post.reject(); // post.state is now PendingReview
         assert_eq!("", post.content());
+        println!("approve_posts_2 passed.");
     }
 }

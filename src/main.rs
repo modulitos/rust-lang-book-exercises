@@ -12,13 +12,17 @@ type Error = boxed::Box<dyn error::Error>;
 type Result<T, E = Error> = result::Result<T, E>;
 
 fn main() -> Result<()>{
-    // fearless_concurrency::threads::mutexes::multi_thread();
     // advanced_traits::methods_same_names::colliding_methods::main();
     // advanced_traits::methods_same_names::associated_functions::main();
     // advanced_traits::super_traits::main();
     // advanced_traits::newtype_pattern::main();
 
     // smart_pointers::deref::main();
-    smart_pointers::deref::implicit_coercion::main();
+    // smart_pointers::deref::implicit_coercion::main();
+
+    // fearless_concurrency::threads::test_multiple_messages();
+    // fearless_concurrency::threads::test_multiple_producers();
+    // fearless_concurrency::threads::mutexes::basic();
+    fearless_concurrency::threads::mutexes::multi_thread();
     Ok(())
 }

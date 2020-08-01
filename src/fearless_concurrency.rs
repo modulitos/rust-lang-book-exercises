@@ -88,7 +88,8 @@ pub mod threads {
     pub fn test_multiple_producers() {
         let (tx, rx) = mpsc::channel();
 
-        let tx1 = mpsc::Sender::clone(&tx);
+        // let tx1 = mpsc::Sender::clone(&tx);
+        let tx1 = tx.clone();
         thread::spawn(move || {
             let vals = vec![
                 String::from("hi"),
@@ -122,6 +123,14 @@ pub mod threads {
         }
     }
 
+    // 2 Rules with mutexes:
+    //
+    //  * You must attempt to acquire the lock before using the data.
+    //
+    //  * When you’re done with the data that the mutex guards, you must unlock the data so other
+    //  threads can acquire the lock.
+    //
+    // Eg: like sharing a single microphone at a panel discussion.
     pub mod mutexes {
         use super::*;
         use std::sync::{Arc, Mutex};
@@ -143,7 +152,18 @@ pub mod threads {
             println!("m = {:?}", m);
         }
 
+        // Using this strategy, you can divide a calculation into independent parts, split those
+        // parts across threads, and then use a Mutex<T> to have each thread update the final result
+        // with its part.
+
         pub fn multi_thread() {
+
+            // If a type implements Send, then it can be transferred between threads
+            //
+            // If a type implements Sync, then it can be referenced between threads.
+
+            // Arc implements Send and Sync, whereas Rc doesn't.
+
             let counter = Arc::new(Mutex::new(0));
             let mut handles = vec![];
 
