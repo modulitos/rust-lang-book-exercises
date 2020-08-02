@@ -15,13 +15,21 @@ impl Worker {
 
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
 
-        // taking a job off the channel queue involves mutating the receiver, so the threads need a safe way to share and modify receiver; otherwise, we might get race conditions
-
         Worker {
             id,
-            handle: thread::spawn(|| {
-                receiver;
-                loop {}
+            handle: thread::spawn(move || {
+                loop {
+
+                    // Using an Arc<Mutex>> because taking a job off the channel queue involves
+                    // mutating the receiver, so the threads need a safe way to share and modify
+                    // receiver; otherwise, we might get race conditions.
+
+                    let job = receiver.lock().unwrap().recv().unwrap();
+
+                    println!("thread {} received a new job.", id);
+                    job();
+                    println!("thread {} job finished.", id);
+                }
             }),
         }
     }
@@ -32,8 +40,7 @@ pub struct ThreadPool {
     sender: mpsc::Sender<Job>,
 }
 
-struct Job {}
-
+type Job = Box<dyn FnOnce() + Send + 'static>;
 
 impl ThreadPool {
     pub fn new(size: usize) -> Self {
@@ -51,24 +58,37 @@ impl ThreadPool {
 
         for i in 0..size {
             // create some threads and store them in the vector
+
+            // For each new worker, we clone the Arc to bump the reference count so the workers can
+            // share ownership of the receiving end.
+
             workers.push(Worker::new(i, Arc::clone(&receiver)));
             // workers.push(Worker::new(i, receiver.clone()));
+
+            println!("new worker has been started with id: {}", i);
         }
 
         ThreadPool { workers, sender }
     }
 
-    pub fn execute<F, T>(&self, closure: F)
+    pub fn execute<F>(&self, job: F)
     where
-        F: FnOnce() -> T,
+        // The type for F is taken from the method signature of thread::spawn() here:
+        // https://doc.rust-lang.org/std/thread/fn.spawn.html
+        F: FnOnce(),
         F: Send + 'static,
-        T: Send + 'static,
     {
-        // println!("executing!");
+        // Send the job down the sending end of the channel.
 
-        // TODO: instead of spawning a thread here, we should pass in the closure to a thread from
-        // our threadpool.
+        self.sender
+            .send(Box::new(job))
 
-        thread::spawn(closure);
+            // We’re calling expect on send for the case that sending fails. This might happen if,
+            // for example, we stop all our threads from executing, meaning the receiving end has
+            // stopped receiving new messages. Currently, we can’t stop our threads from executing:
+            // our threads continue executing as long as the pool exists. The reason we use unwrap
+            // is that we know the failure case won’t happen, but the compiler doesn’t know that.
+
+            .expect("Failed to send job to channel consumer");
     }
 }
