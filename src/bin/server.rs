@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::{thread, time};
 
 fn main() {
     // bind to our localhost, at port 7878 (which is "rust" when typed into a phone)
@@ -63,14 +64,18 @@ fn handle_connection(mut stream: TcpStream) {
         .expect("unable to read request into buffer");
 
     let get = b"GET / HTTP/1.1\r\n";
+    let sleep = b"GET /sleep HTTP/1.1\r\n";
 
     let (status_line, filename) = if buffer.starts_with(get) {
-        ("HTTP/1.1 200 OK", "hello")
+        ("HTTP/1.1 200 OK", "hello.html")
+    } else if buffer.starts_with(sleep) {
+        thread::sleep(time::Duration::from_secs(5));
+        ("HTTP/1.1 200 OK", "hello.html")
     } else {
-        ("HTTP/1.1 404 NOT FOUND", "404")
+        ("HTTP/1.1 404 NOT FOUND", "404.html")
     };
 
-    let contents = fs::read_to_string(format!("{}.html", filename)).unwrap();
+    let contents = fs::read_to_string(format!("{}", filename)).unwrap();
 
     let response = format!(
         "{}\r\nContent-Length: {}\r\n\r\n{}",
