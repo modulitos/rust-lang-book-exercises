@@ -1,6 +1,6 @@
+use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::thread::Thread;
 
 fn main() {
     // bind to our localhost, at port 7878 (which is "rust" when typed into a phone)
@@ -30,12 +30,12 @@ fn main() {
 /// message-body
 
 fn handle_connection(mut stream: TcpStream) {
-    // We are using 1024 here, because something shorter like 256 wouldn't be able to read the
-    // entire request made from a browser, given the extra headers.
 
-    // let mut buf = [0; 1024];
-    let mut buf = [0; 10];
-    // let mut buf = [0; 256];
+    // We are using 1024 here, because something shorter like 256 wouldn't be able to read the
+    // entire request made from a browser, given the extra headers. We are not supporting requests
+    // longer than 1024 bytes.
+
+    let mut buf = [0; 1024];
 
     // Read the tcp stream. If accessed from a browser or curl, this should set the following value
     // into our buf:
@@ -66,7 +66,12 @@ fn handle_connection(mut stream: TcpStream) {
     println!("bytes read:{}", bytes_read);
     println!("request buffer:\n{}\n", String::from_utf8_lossy(&buf[..]));
 
-    let response = "HTTP/1.1 200 OK\r\n\r\n";
+    let contents = fs::read_to_string("hello.html").unwrap();
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+        contents.len(),
+        contents
+    );
 
     // The write method on stream takes a &[u8] and sends those bytes directly down the connection.
 
