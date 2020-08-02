@@ -9,7 +9,7 @@ fn main() {
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        println!("Connection established!");
+        // println!("Connection established!");
         handle_connection(stream);
     }
 }
@@ -54,7 +54,7 @@ fn handle_connection(mut stream: TcpStream) {
     // User-Agent: curl/7.64.1
     // Accept: */*
 
-    let bytes_read = stream
+    let _bytes_read = stream
         // WARNING: If the request contains more than buf.len() bytes, then we won't end up reading
         // more than buf.len() bytes from the request, so the client will never get confirmation
         // that the request was read. So once `stream` is dropped, the connection will be forcefully
@@ -62,43 +62,35 @@ fn handle_connection(mut stream: TcpStream) {
         .read(&mut buffer)
         .expect("unable to read request into buffer");
 
-    // println!("bytes read:{}", bytes_read);
-    // println!("request buffer:\n{}\n", String::from_utf8_lossy(&buffer[..]));
+    let get = b"GET / HTTP/1.1\r\n";
 
-    let get = b"GET / ";
-
-    if buffer.starts_with(get) {
-        let contents = fs::read_to_string("hello.html").unwrap();
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-            contents.len(),
-            contents
-        );
-
-        // The write method on stream takes a &[u8] and sends those bytes directly down the connection.
-
-        let bytes_written = stream
-            .write(response.as_bytes())
-            .expect("unable to write the response to the buffer.");
-
-        println!("bytes written:{}", bytes_written);
-
-        // Finally, flush will wait and prevent the program from continuing until all the bytes are
-        // written to the connection; TcpStream contains an internal buffer to minimize calls to the
-        // underlying operating system.
-
-        stream
-            .flush()
-            .expect("unable to write all bytes from the internal buffer to the connection.");
-
-        println!();
+    let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK", "hello")
     } else {
-        let status_line = "HTTP/1.1 404 NOT FOUND\r\n\r\n";
-        let contents = fs::read_to_string("404.html").unwrap();
+        ("HTTP/1.1 404 NOT FOUND", "404")
+    };
 
-        let response = format!("{}{}", status_line, contents);
+    let contents = fs::read_to_string(format!("{}.html", filename)).unwrap();
 
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
+    let response = format!(
+        "{}\r\nContent-Length: {}\r\n\r\n{}",
+        status_line,
+        contents.len(),
+        contents
+    );
+
+    // The write method on stream takes a &[u8] and sends those bytes directly down the connection.
+
+    let _bytes_written = stream
+        .write(response.as_bytes())
+        .expect("unable to write the response to the buffer.");
+
+    // Finally, flush will wait and prevent the program from continuing until all the bytes are
+    // written to the connection; TcpStream contains an internal buffer to minimize calls to the
+    // underlying operating system.
+
+    stream
+        .flush()
+        .expect("unable to write all bytes from the internal buffer to the connection.");
+
 }
