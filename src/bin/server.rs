@@ -1,3 +1,4 @@
+use rust_lang_book::thread_pool::ThreadPool;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -7,11 +8,17 @@ fn main() {
     // bind to our localhost, at port 7878 (which is "rust" when typed into a phone)
 
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let pool = ThreadPool::new(4);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        // println!("Connection established!");
-        handle_connection(stream);
+
+        // Using a thread pool is just one of many ways to improve the throughput of a web server.
+        // Other options are the fork/join model and the single-threaded async I/O model.
+
+        pool.execute(|| {
+            handle_connection(stream);
+        });
     }
 }
 
@@ -97,5 +104,4 @@ fn handle_connection(mut stream: TcpStream) {
     stream
         .flush()
         .expect("unable to write all bytes from the internal buffer to the connection.");
-
 }

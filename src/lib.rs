@@ -4,5 +4,6 @@ pub mod fearless_concurrency;
 pub mod state_pattern_blog;
 pub mod advanced_traits;
 pub mod smart_pointers;
+pub mod thread_pool;
 
 
