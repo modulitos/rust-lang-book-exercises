@@ -4,6 +4,9 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::{thread, time};
 
+/// Building a Multi-Threaded Web Server. Final project for the Rust Lang book:
+/// https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html
+
 fn main() {
     // bind to our localhost, at port 7878 (which is "rust" when typed into a phone)
 
