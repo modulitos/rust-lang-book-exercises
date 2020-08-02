@@ -8,13 +8,20 @@ fn main() {
     // bind to our localhost, at port 7878 (which is "rust" when typed into a phone)
 
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+
+    // Create a thread pool that executes connections asynchronously. There are never more than four
+    // threads created, so our system won’t get overloaded if the server receives a lot of requests.
+    // If we make a request to /sleep, the server will be able to serve other requests by having
+    // another thread run them.
+
+    // Using a thread pool is just one of many ways to improve the throughput of a web server.
+    // Other options are the fork/join model and the single-threaded async I/O model.
+
     let pool = ThreadPool::new(4);
+
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-
-        // Using a thread pool is just one of many ways to improve the throughput of a web server.
-        // Other options are the fork/join model and the single-threaded async I/O model.
 
         pool.execute(|| {
             handle_connection(stream);
