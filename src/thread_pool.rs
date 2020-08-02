@@ -1,22 +1,36 @@
 use std::thread;
 use std::thread::JoinHandle;
 
+struct Worker {
+    id: usize,
+    handle: JoinHandle<()>,
+}
+
+impl Worker {
+    fn new(id: usize) -> Self {
+        Worker {
+            id,
+            handle: thread::spawn(|| loop {}),
+        }
+    }
+}
+
 pub struct ThreadPool {
-    threads: Vec<JoinHandle<()>>,
+    workers: Vec<Worker>,
 }
 
 impl ThreadPool {
     pub fn new(size: usize) -> Self {
         assert!(size > 0);
 
-        let mut threads = Vec::with_capacity(size);
+        let mut workers = Vec::with_capacity(size);
 
-        for _ in 0..size {
+        for i in 0..size {
             // create some threads and store them in the vector
-            threads.push(thread::spawn(|| loop {}))
+            workers.push(Worker::new(i))
         }
 
-        ThreadPool { threads }
+        ThreadPool { workers }
     }
 
     pub fn execute<F, T>(&self, closure: F)
