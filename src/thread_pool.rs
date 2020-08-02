@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 
 struct Worker {
     id: usize,
-    handle: JoinHandle<()>,
+    thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
@@ -16,44 +16,44 @@ impl Worker {
     // receiver; otherwise, we might get race conditions.
 
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
+        let thread = thread::spawn(move || {
+            loop {
+                // Here, we first call lock on the receiver to acquire the mutex, and then we
+                // call unwrap to panic on any errors. Acquiring a lock might fail if the mutex
+                // is in a poisoned state, which can happen if some other thread panicked while
+                // holding the lock rather than releasing the lock. In this situation, calling
+                // unwrap to have this thread panic is the correct action to take.
+
+                // Note that .lock acquires a mutex, blocking the current thread until it is
+                // able to do so.
+
+                // If we get the lock on the mutex, we call recv to receive a Job from the
+                // channel. A final unwrap moves past any errors here as well, which might occur
+                // if the thread holding the sending side of the channel has shut down, similar
+                // to how the send method returns Err if the receiving side shuts down.
+
+                // The call to recv blocks, so if there is no job yet, the current thread will
+                // wait until a job becomes available. The Mutex<T> ensures that only one Worker
+                // thread at a time is trying to request a job.
+
+                let job = receiver.lock().unwrap().recv().unwrap();
+
+                // Note that the temporary MutexGuard returned from the lock method is dropped
+                // as soon as the "let job =" statement ends. This ensures that the lock is held
+                // during the call to recv, but it is released before the call to job(),
+                // allowing multiple requests to be serviced concurrently.
+
+                // AKA, we are freeing up other threads to access the receiver *before* the job
+                // is run.
+
+                println!("thread {} received a new job.", id);
+                job();
+                println!("thread {} job finished.", id);
+            }
+        });
         Worker {
             id,
-            handle: thread::spawn(move || {
-                loop {
-                    // Here, we first call lock on the receiver to acquire the mutex, and then we
-                    // call unwrap to panic on any errors. Acquiring a lock might fail if the mutex
-                    // is in a poisoned state, which can happen if some other thread panicked while
-                    // holding the lock rather than releasing the lock. In this situation, calling
-                    // unwrap to have this thread panic is the correct action to take.
-
-                    // Note that .lock acquires a mutex, blocking the current thread until it is
-                    // able to do so.
-
-                    // If we get the lock on the mutex, we call recv to receive a Job from the
-                    // channel. A final unwrap moves past any errors here as well, which might occur
-                    // if the thread holding the sending side of the channel has shut down, similar
-                    // to how the send method returns Err if the receiving side shuts down.
-
-                    // The call to recv blocks, so if there is no job yet, the current thread will
-                    // wait until a job becomes available. The Mutex<T> ensures that only one Worker
-                    // thread at a time is trying to request a job.
-
-                    let job = receiver.lock().unwrap().recv().unwrap();
-
-
-                    // Note that the temporary MutexGuard returned from the lock method is dropped
-                    // as soon as the "let job =" statement ends. This ensures that the lock is held
-                    // during the call to recv, but it is released before the call to job(),
-                    // allowing multiple requests to be serviced concurrently.
-
-                    // AKA, we are freeing up other threads to access the receiver *before* the job
-                    // is run.
-
-                    println!("thread {} received a new job.", id);
-                    job();
-                    println!("thread {} job finished.", id);
-                }
-            }),
+            thread: Some(thread),
         }
     }
 }
@@ -113,5 +113,19 @@ impl ThreadPool {
             // our threads continue executing as long as the pool exists. The reason we use unwrap
             // is that we know the failure case won’t happen, but the compiler doesn’t know that.
             .expect("Failed to send job to channel consumer");
+    }
+}
+
+/// When the pool is dropped, our threads should all join to make sure they finish their work.
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        for worker in &mut self.workers {
+            println!("Shutting down worker {}", worker.id);
+
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
     }
 }
