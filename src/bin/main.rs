@@ -1,9 +1,4 @@
-// import modules here so that they'll run in our test suite
-mod different_types_blog;
-mod fearless_concurrency;
-mod state_pattern_blog;
-mod advanced_traits;
-mod smart_pointers;
+use rust_lang_book::{advanced_traits, fearless_concurrency, smart_pointers};
 use std::boxed;
 use std::error;
 use std::result;
@@ -11,7 +6,12 @@ use std::result;
 type Error = boxed::Box<dyn error::Error>;
 type Result<T, E = Error> = result::Result<T, E>;
 
-fn main() -> Result<()>{
+/// This binary runs various exercises from the book. It's useful for testing out some of the
+/// programs that we've written. It's probably better to re-write these small programs as unit
+/// tests, but for now, we're treating them as small standalone programs that we can run and "see
+/// what happens".
+
+fn main() -> Result<()> {
     // advanced_traits::methods_same_names::colliding_methods::main();
     // advanced_traits::methods_same_names::associated_functions::main();
     // advanced_traits::super_traits::main();
@@ -23,6 +23,6 @@ fn main() -> Result<()>{
     // fearless_concurrency::threads::test_multiple_messages();
     // fearless_concurrency::threads::test_multiple_producers();
     // fearless_concurrency::threads::mutexes::basic();
-    fearless_concurrency::threads::mutexes::multi_thread();
+    // fearless_concurrency::threads::mutexes::multi_thread();
     Ok(())
 }
