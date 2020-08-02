@@ -30,12 +30,11 @@ fn main() {
 /// message-body
 
 fn handle_connection(mut stream: TcpStream) {
-
     // We are using 1024 here, because something shorter like 256 wouldn't be able to read the
     // entire request made from a browser, given the extra headers. We are not supporting requests
     // longer than 1024 bytes.
 
-    let mut buf = [0; 1024];
+    let mut buffer = [0; 1024];
 
     // Read the tcp stream. If accessed from a browser or curl, this should set the following value
     // into our buf:
@@ -49,8 +48,8 @@ fn handle_connection(mut stream: TcpStream) {
     // Connection: keep-alive
     // Upgrade-Insecure-Requests: 1
 
-    // or with `curl http://localhost:7878/hey`
-    // GET /hey HTTP/1.1
+    // or with `curl http://localhost:7878/`
+    // GET / HTTP/1.1
     // Host: localhost:7878
     // User-Agent: curl/7.64.1
     // Accept: */*
@@ -60,34 +59,39 @@ fn handle_connection(mut stream: TcpStream) {
         // more than buf.len() bytes from the request, so the client will never get confirmation
         // that the request was read. So once `stream` is dropped, the connection will be forcefully
         // closed, resulting in a "connection reset" error in the client.
-        .read(&mut buf)
+        .read(&mut buffer)
         .expect("unable to read request into buffer");
 
-    println!("bytes read:{}", bytes_read);
-    println!("request buffer:\n{}\n", String::from_utf8_lossy(&buf[..]));
+    // println!("bytes read:{}", bytes_read);
+    // println!("request buffer:\n{}\n", String::from_utf8_lossy(&buffer[..]));
 
-    let contents = fs::read_to_string("hello.html").unwrap();
-    let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-        contents.len(),
-        contents
-    );
+    let get = b"GET / ";
 
-    // The write method on stream takes a &[u8] and sends those bytes directly down the connection.
+    if buffer.starts_with(get) {
+        let contents = fs::read_to_string("hello.html").unwrap();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+            contents.len(),
+            contents
+        );
 
-    let bytes_written = stream
-        .write(response.as_bytes())
-        .expect("unable to write the response to the buffer.");
+        // The write method on stream takes a &[u8] and sends those bytes directly down the connection.
 
-    println!("bytes written:{}", bytes_written);
+        let bytes_written = stream
+            .write(response.as_bytes())
+            .expect("unable to write the response to the buffer.");
 
-    // Finally, flush will wait and prevent the program from continuing until all the bytes are
-    // written to the connection; TcpStream contains an internal buffer to minimize calls to the
-    // underlying operating system.
+        println!("bytes written:{}", bytes_written);
 
-    stream
-        .flush()
-        .expect("unable to write all bytes from the internal buffer to the connection.");
+        // Finally, flush will wait and prevent the program from continuing until all the bytes are
+        // written to the connection; TcpStream contains an internal buffer to minimize calls to the
+        // underlying operating system.
 
-    println!();
+        stream
+            .flush()
+            .expect("unable to write all bytes from the internal buffer to the connection.");
+
+        println!();
+    } else {
+    }
 }
