@@ -2,6 +2,11 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
+enum WorkerMessage {
+    DoWork(Job),
+    Terminate,
+}
+
 // Each Worker stores a single JoinHandle<()> instance. Each worker has an id so we can distinguish
 // between the different workers in the pool when logging or debugging.
 
@@ -15,7 +20,7 @@ impl Worker {
     // mutating the receiver, so the threads need a safe way to share and modify
     // receiver; otherwise, we might get race conditions.
 
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<WorkerMessage>>>) -> Self {
         let thread = thread::spawn(move || {
             loop {
                 // Here, we first call lock on the receiver to acquire the mutex, and then we
@@ -27,28 +32,34 @@ impl Worker {
                 // Note that .lock acquires a mutex, blocking the current thread until it is
                 // able to do so.
 
-                // If we get the lock on the mutex, we call recv to receive a Job from the
-                // channel. A final unwrap moves past any errors here as well, which might occur
-                // if the thread holding the sending side of the channel has shut down, similar
-                // to how the send method returns Err if the receiving side shuts down.
+                // If we get the lock on the mutex, we call recv to receive a message from the
+                // channel. A final unwrap moves past any errors here as well, which might occur if
+                // the thread holding the sending side of the channel has shut down, similar to how
+                // the send method returns Err if the receiving side shuts down.
 
-                // The call to recv blocks, so if there is no job yet, the current thread will
-                // wait until a job becomes available. The Mutex<T> ensures that only one Worker
-                // thread at a time is trying to request a job.
+                // The call to recv blocks, so if there is no message yet, the current thread will
+                // wait until a message becomes available. The Mutex<T> ensures that only one Worker
+                // thread at a time is trying to request a message.
 
-                let job = receiver.lock().unwrap().recv().unwrap();
+                match receiver.lock().unwrap().recv().unwrap() {
+                    WorkerMessage::DoWork(job) => {
+                        // Note that the temporary MutexGuard returned from the lock method is dropped
+                        // as soon as the "let job =" statement ends. This ensures that the lock is held
+                        // during the call to recv, but it is released before the call to job(),
+                        // allowing multiple requests to be serviced concurrently.
 
-                // Note that the temporary MutexGuard returned from the lock method is dropped
-                // as soon as the "let job =" statement ends. This ensures that the lock is held
-                // during the call to recv, but it is released before the call to job(),
-                // allowing multiple requests to be serviced concurrently.
+                        // AKA, we are freeing up other threads to access the receiver *before* the job
+                        // is run.
 
-                // AKA, we are freeing up other threads to access the receiver *before* the job
-                // is run.
-
-                println!("thread {} received a new job.", id);
-                job();
-                println!("thread {} job finished.", id);
+                        println!("thread {} received a new job.", id);
+                        job();
+                        println!("thread {} job finished.", id);
+                    }
+                    WorkerMessage::Terminate => {
+                        println!("worker is terminating");
+                        break;
+                    }
+                }
             }
         });
         Worker {
@@ -60,7 +71,7 @@ impl Worker {
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>,
+    sender: mpsc::Sender<WorkerMessage>,
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
@@ -106,7 +117,7 @@ impl ThreadPool {
         // Send the job down the sending end of the channel.
 
         self.sender
-            .send(Box::new(job))
+            .send(WorkerMessage::DoWork(Box::new(job)))
             // We’re calling expect on send for the case that sending fails. This might happen if,
             // for example, we stop all our threads from executing, meaning the receiving end has
             // stopped receiving new messages. Currently, we can’t stop our threads from executing:
@@ -117,13 +128,35 @@ impl ThreadPool {
 }
 
 /// When the pool is dropped, our threads should all join to make sure they finish their work.
+///
+/// When the ThreadPool goes out of scope at the end of main, its Drop implementation kicks in, and
+/// the pool tells all workers to terminate. The workers each print a message when they see the
+/// terminate message, and then the thread pool calls join to shut down each worker thread.
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
+        println!("drop trait!");
+
+        // We’re now iterating over the workers twice: once to send one Terminate message for each
+        // worker and once to call join on each worker’s thread. If we tried to send a message and
+        // join immediately in the same loop, we couldn’t guarantee that the worker in the current
+        // iteration would be the one to get the message from the channel.
+
+        // So, we can be sure that if we send the same number of terminate messages as there are
+        // workers, each worker will receive a terminate message before join is called on its
+        // thread.
+
+        self.workers.iter().for_each(|_| {
+            self.sender
+                .send(WorkerMessage::Terminate)
+                .expect("Failed to send job to channel consumer")
+        });
+
         for worker in &mut self.workers {
             println!("Shutting down worker {}", worker.id);
 
             if let Some(thread) = worker.thread.take() {
+                // Block the main thread, and wait for the associated thread to finish.
                 thread.join().unwrap();
             }
         }

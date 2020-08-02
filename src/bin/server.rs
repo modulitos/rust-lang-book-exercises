@@ -19,6 +19,8 @@ fn main() {
 
     let pool = ThreadPool::new(4);
 
+    // To simulate the server shutting down gracefully, we can call `incoming().take(2)` to make it
+    // shutdown after 2 requests.
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
