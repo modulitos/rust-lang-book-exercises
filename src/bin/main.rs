@@ -1,4 +1,4 @@
-use rust_lang_book::{advanced_traits, fearless_concurrency, smart_pointers};
+use rust_lang_book::{advanced_traits, fearless_concurrency, smart_pointers, state_pattern_blog};
 use std::boxed;
 use std::error;
 use std::result;
@@ -12,6 +12,8 @@ type Result<T, E = Error> = result::Result<T, E>;
 /// what happens".
 
 fn main() -> Result<()> {
+    // state_pattern_blog::blog::Post::new();
+
     // advanced_traits::methods_same_names::colliding_methods::main();
     // advanced_traits::methods_same_names::associated_functions::main();
     // advanced_traits::super_traits::main();

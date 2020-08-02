@@ -64,11 +64,11 @@ pub mod methods_same_names {
         }
 
         pub fn main() {
-            // println!("A baby dog is called a {}", Dog::baby_name()); // "Spot"
+            println!("A baby dog is called a {}", Dog::baby_name()); // "Spot"
 
             // instead:
-            println!("A baby dog is called a {}", <Dog as Animal>::baby_name());
-            // "puppy"
+            println!("A baby dog is called a {}", <Dog as Animal>::baby_name()); // "puppy"
+
 
             // In general, fully qualified syntax is defined as follows:
             // <Type as Trait>::function(receiver_if_method, next_arg, ...);

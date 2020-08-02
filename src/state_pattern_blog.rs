@@ -65,7 +65,7 @@ pub mod blog {
         }
 
         fn reject(self: Box<Self>) -> Box<dyn State>;
-        fn add_text(&self, content: &mut String, text: &str) {}
+        fn add_text(&self, _content: &mut String, _text: &str) {}
     }
 
     impl State for Draft {
